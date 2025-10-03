@@ -1,407 +1,353 @@
 <!DOCTYPE html>
-<script>
-  const password = "famille2025"; // ton mot de passe choisi
-  let userPass = prompt("Entrez le mot de passe pour accéder au site :");
-  if (userPass !== password) {
-    document.body.innerHTML = "<h2 style='text-align:center;margin-top:50px'>⛔ Accès refusé</h2>";
-  }
-</script>
-
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Arbre Généalogique Interactif</title>
-  <script src="https://d3js.org/d3.v7.min.js"></script>
-  <style>
-    /* CSS global */
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      background-color: #f4f4f9;
-    }
-    #tree-container {
-      width: 100vw;
-      height: 100vh;
-      cursor: move;
-      display: block;
-    }
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Arbre Généalogique Complet</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        /* CSS global */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0; padding: 0; overflow: hidden; background-color: #f0f2f5;
+        }
+        #tree-container { width: 100vw; height: 100vh; cursor: move; display: block; }
 
-    /* Liens & nœuds */
-    .link {
-      fill: none;
-      stroke: #ccc;
-      stroke-width: 2px;
-    }
-    .node circle {
-      stroke: #fff;
-      stroke-width: 3px;
-    }
-    .node text {
-      font-size: 14px;
-      fill: #333;
-      paint-order: stroke;
-      stroke: #fff;
-      stroke-width: 3px;
-      stroke-linecap: butt;
-      stroke-linejoin: miter;
-    }
+        /* Liens & Nœuds */
+        .link { fill: none; stroke: #b0bec5; stroke-width: 2px; }
+        .node circle { stroke: #fff; stroke-width: 3px; cursor: pointer; }
+        .node.is-spouse rect { stroke: #fff; stroke-width: 3px; cursor: pointer; }
+        .node text {
+            font-size: 14px; fill: #263238; paint-order: stroke;
+            stroke: #fff; stroke-width: 3.5px; stroke-linecap: butt; stroke-linejoin: miter;
+        }
+        .spouse-link { fill: none; stroke: #78909c; stroke-width: 1.5px; stroke-dasharray: 4 2; }
 
-    /* Couleurs par génération */
-    .generation-0 { fill: #8d3e5f; } /* Racine */
-    .generation-1 { fill: #d45087; } /* Enfants */
-    .generation-2 { fill: #ff7c43; } /* Petits-enfants */
-    .generation-3 { fill: #ffa600; } /* Arrière-petits-enfants */
-    .generation-4 { fill: #f95d6a; }
+        /* Couleurs par génération */
+        .generation-0 { fill: #455a64; }
+        .generation-1 { fill: #546e7a; }
+        .generation-2 { fill: #78909c; }
+        .generation-3 { fill: #90a4ae; }
+        .generation-4 { fill: #b0bec5; }
 
-    /* Panneau de détails */
-    #details-panel {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      width: 280px;
-      background-color: white;
-      border-radius: 10px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      padding: 16px;
-      display: none;
-      transition: opacity 0.3s ease;
-      opacity: 0;
-      max-height: calc(100vh - 40px);
-      overflow-y: auto;
-    }
-    #details-panel.visible {
-      display: block;
-      opacity: 1;
-    }
-    #details-panel img {
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      display: block;
-      margin: 0 auto 12px;
-      object-fit: cover;
-      border: 3px solid #eee;
-    }
-    #details-panel h3 {
-      margin: 0 0 8px 0;
-      text-align: center;
-      color: #333;
-      font-size: 18px;
-    }
-    #details-panel p {
-      font-size: 14px;
-      color: #666;
-      margin: 4px 0;
-      text-align: center;
-    }
+        /* Panneau de détails */
+        #details-panel {
+            position: absolute; top: 20px; right: 20px; width: 290px;
+            background-color: white; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+            padding: 20px; display: none; transition: opacity 0.3s ease; opacity: 0;
+            max-height: calc(100vh - 40px); overflow-y: auto;
+        }
+        #details-panel.visible { display: block; opacity: 1; }
+        #details-panel img {
+            width: 100px; height: 100px; border-radius: 50%; display: block;
+            margin: 0 auto 15px; object-fit: cover; border: 4px solid #eceff1;
+        }
+        #details-panel h3 { margin: 0 0 10px; text-align: center; color: #263238; font-size: 20px; }
+        #details-panel p { font-size: 14px; color: #546e7a; margin: 5px 0; text-align: center; }
+        .spouse-info { font-style: italic; color: #546e7a; }
 
-    /* --- NOUVEAU : Formulaire Ajouter un enfant --- */
-    .divider {
-      height: 1px;
-      background: #eee;
-      margin: 12px 0;
-    }
-    .panel-section-title {
-      font-size: 13px;
-      font-weight: 600;
-      color: #444;
-      margin: 6px 0 8px;
-      text-align: left;
-    }
-    form#add-child-form label {
-      display: block;
-      font-size: 12px;
-      color: #555;
-      margin-bottom: 4px;
-    }
-    form#add-child-form input {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 8px 10px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      margin-bottom: 10px;
-      font-size: 13px;
-    }
-    #add-child-btn {
-      width: 100%;
-      padding: 10px 12px;
-      border: 0;
-      border-radius: 10px;
-      background: #8d3e5f;
-      color: #fff;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    #add-child-btn:hover {
-      filter: brightness(1.05);
-    }
-    .hint {
-      font-size: 12px;
-      color: #888;
-      text-align: left;
-      margin-top: -6px;
-      margin-bottom: 10px;
-    }
-    .success {
-      font-size: 12px;
-      color: #2e7d32;
-      margin-top: 4px;
-      text-align: left;
-    }
-    .error {
-      font-size: 12px;
-      color: #c62828;
-      margin-top: 4px;
-      text-align: left;
-    }
-  </style>
+        /* Éléments UI du panneau */
+        .divider { height: 1px; background: #e0e0e0; margin: 16px 0; }
+        .panel-section-title {
+            font-size: 14px; font-weight: 600; color: #37474f;
+            margin-bottom: 12px; text-align: left;
+        }
+        form label { display: block; font-size: 13px; color: #555; margin-bottom: 5px; }
+        form input {
+            width: 100%; box-sizing: border-box; padding: 9px 12px;
+            border: 1px solid #cfd8dc; border-radius: 8px; margin-bottom: 12px; font-size: 14px;
+        }
+        .btn, button {
+            width: 100%; padding: 10px 12px; border: 0; border-radius: 8px;
+            font-weight: 600; cursor: pointer; transition: filter 0.2s;
+            font-size: 14px; margin-top: 5px;
+        }
+        .btn:hover, button:hover { filter: brightness(1.1); }
+        .btn-primary { background: #455a64; color: #fff; }
+        .btn-secondary { background: #eceff1; color: #37474f; }
+        .btn-danger { background: #d32f2f; color: #fff; }
+        .btn-group { display: flex; gap: 8px; }
+
+        .feedback { font-size: 13px; margin-top: 8px; text-align: left; padding: 8px; border-radius: 6px; }
+        .success { color: #2e7d32; background-color: #e8f5e9; }
+        .error { color: #c62828; background-color: #ffcdd2; }
+    </style>
 </head>
 <body>
-
-  <svg id="tree-container"></svg>
-
-  <div id="details-panel">
-    <img id="person-image" src="" alt="Photo"/>
-    <h3 id="person-name"></h3>
-    <p id="person-birth"></p>
-    <p id="person-death"></p>
-
-    <div class="divider"></div>
-
-    <!-- NOUVEAU : Formulaire d'ajout d'enfant -->
-    <div class="panel-section-title">Ajouter un enfant à cette personne</div>
-    <form id="add-child-form">
-      <label for="child-name">Nom complet</label>
-      <input id="child-name" name="child-name" type="text" placeholder="Ex. Antoine Dubois" required />
-
-      <label for="child-birth">Date de naissance (YYYY-MM-DD)</label>
-      <input id="child-birth" name="child-birth" type="text" placeholder="1990-01-01" />
-
-      <label for="child-death">Date de décès (optionnel)</label>
-      <input id="child-death" name="child-death" type="text" placeholder="(laisser vide si vivant)" />
-
-      <label for="child-image">URL photo (optionnel)</label>
-      <input id="child-image" name="child-image" type="url" placeholder="https://..." />
-
-      <button id="add-child-btn" type="submit">Ajouter l’enfant</button>
-      <div id="add-child-feedback" class="success" style="display:none;">Enfant ajouté ✔️</div>
-      <div id="add-child-error" class="error" style="display:none;">Veuillez renseigner un nom valide.</div>
-      <p class="hint">Clique sur une personne de l’arbre pour la sélectionner, puis ajoute un enfant ici.</p>
-    </form>
-  </div>
-
-  <script>
-    // --- 1) DONNÉES DE L'ARBRE ---
-    const treeData = {
-      "name": "Bernard Blerald",
-      "birthDate": "1930-05-15",
-      "deathDate": "2015-10-20",
-      "imageUrl": "https://i.pravatar.cc/150?u=bernard",
-      "children": [
-        {
-          "name": "Jean Dubois",
-          "birthDate": "1955-02-25",
-          "deathDate": null,
-          "imageUrl": "https://i.pravatar.cc/150?u=jean",
-          "children": [
-            {
-              "name": "Clara Dubois",
-              "birthDate": "1982-11-10",
-              "deathDate": null,
-              "imageUrl": "https://i.pravatar.cc/150?u=clara",
-              "children": []
-            },
-            {
-              "name": "Lucas Dubois",
-              "birthDate": "1985-07-30",
-              "deathDate": null,
-              "imageUrl": "https://i.pravatar.cc/150?u=lucas",
-              "children": []
-            },
-            {
-              "name": "Antoine Dubois",
-              "birthDate": "1990-01-01",
-              "deathDate": null,
-              "imageUrl": "https://i.pravatar.cc/150?u=antoine",
-              "children": []
-            }
-          ]
-        },
-        {
-          "name": "Marie Martin",
-          "birthDate": "1958-09-12",
-          "deathDate": null,
-          "imageUrl": "https://i.pravatar.cc/150?u=marie",
-          "children": [
-            {
-              "name": "Sophie Martin",
-              "birthDate": "1988-03-18",
-              "deathDate": null,
-              "imageUrl": "https://i.pravatar.cc/150?u=sophie",
-              "children": [
-                {
-                  "name": "Léo Martin",
-                  "birthDate": "2010-06-05",
-                  "deathDate": null,
-                  "imageUrl": "https://i.pravatar.cc/150?u=leo",
-                  "children": []
-                }
-              ]
-            },
-            {
-              "name": "Paul Martin",
-              "birthDate": "1991-12-01",
-              "deathDate": null,
-              "imageUrl": "https://i.pravatar.cc/150?u=paul",
-              "children": []
-            }
-          ]
+    <script>
+        const requiredPassword = "famille2025";
+        let userPassword = prompt("Entrez le mot de passe pour accéder à l'arbre :");
+        if (userPassword !== requiredPassword) {
+            document.body.innerHTML = "<h2 style='text-align:center;margin-top:50px'>⛔ Accès refusé. Le mot de passe est incorrect.</h2>";
+            throw new Error("Accès refusé"); // Arrête l'exécution du reste du script
         }
-      ]
-    };
+    </script>
 
-    // --- 2) CONFIG D3.JS ---
-    const svg = d3.select("#tree-container")
-      .attr("width", window.innerWidth)
-      .attr("height", window.innerHeight);
+    <svg id="tree-container"></svg>
 
-    const detailsPanel = d3.select("#details-panel");
+    <div id="details-panel">
+        <div id="view-mode">
+            <img id="person-image" src="" alt="Photo"/>
+            <h3 id="person-name"></h3>
+            <p id="person-birth"></p>
+            <p id="person-death"></p>
+            <p id="person-spouse" class="spouse-info"></p>
+            <div class="btn-group">
+                <button id="edit-btn" class="btn-secondary">Modifier</button>
+                <button id="delete-btn" class="btn-danger">Supprimer</button>
+            </div>
+            <div class="divider"></div>
+            <div id="add-child-section">
+                 <div class="panel-section-title">Ajouter un enfant</div>
+                 <form id="add-child-form">
+                     <input name="name" type="text" placeholder="Nom complet de l'enfant" required />
+                     <button type="submit" class="btn-primary">Ajouter l'enfant</button>
+                 </form>
+            </div>
+            <div id="add-spouse-section">
+                <div class="panel-section-title">Ajouter un conjoint</div>
+                <form id="add-spouse-form">
+                    <input name="name" type="text" placeholder="Nom complet du conjoint" required />
+                    <button type="submit" class="btn-primary">Ajouter le conjoint</button>
+                </form>
+            </div>
+        </div>
 
-    // Groupe principal (servira pour le zoom)
-    const g = svg.append("g")
-      .attr("transform", "translate(150,0)"); // marge gauche
+        <div id="edit-mode" style="display:none;">
+            <div class="panel-section-title">Modifier les informations</div>
+            <form id="edit-form">
+                <label>Nom complet</label>
+                <input name="name" type="text" required />
+                <label>Date de naissance (YYYY-MM-DD)</label>
+                <input name="birthDate" type="text" />
+                <label>Date de décès (YYYY-MM-DD)</label>
+                <input name="deathDate" type="text" />
+                <label>URL de la photo</label>
+                <input name="imageUrl" type="url" />
+                <div class="btn-group">
+                    <button type="submit" class="btn-primary">Enregistrer</button>
+                    <button type="button" id="cancel-edit-btn" class="btn-secondary">Annuler</button>
+                </div>
+            </form>
+        </div>
+        <div id="feedback-zone" class="feedback" style="display:none;"></div>
+    </div>
 
-    // Variable pour mémoriser la personne sélectionnée (pour ajouter un enfant)
-    let selectedPerson = null;
+    <script>
+        // --- 1. GESTION DES DONNÉES & PERSISTANCE ---
+        let treeData;
+        
+        const defaultTreeData = { /* Données initiales si aucune sauvegarde n'existe */
+          "name": "Bernard Blerald", "birthDate": "1930-05-15", "deathDate": "2015-10-20", "imageUrl": "https://i.pravatar.cc/150?u=bernard",
+          "spouse": { "name": "Jeanne Blerald", "birthDate": "1932-01-01", "deathDate": "2018-12-24", "imageUrl": "https://i.pravatar.cc/150?u=jeanne" },
+          "children": [{
+              "name": "Jean Dubois", "birthDate": "1955-02-25", "imageUrl": "https://i.pravatar.cc/150?u=jean",
+              "children": [{ "name": "Clara Dubois", "birthDate": "1982-11-10", "imageUrl": "https://i.pravatar.cc/150?u=clara", "children": [] }]
+          }]
+        };
 
-    function renderTree() {
-      const width = window.innerWidth;
-      const height = window.innerHeight;
+        function saveData() {
+            localStorage.setItem('familyTreeData', JSON.stringify(treeData));
+            console.log("Arbre sauvegardé !");
+        }
 
-      svg.attr("width", width).attr("height", height);
+        function loadData() {
+            const savedData = localStorage.getItem('familyTreeData');
+            treeData = savedData ? JSON.parse(savedData) : JSON.parse(JSON.stringify(defaultTreeData));
+        }
 
-      const treeLayout = d3.tree().size([height, width - 300]);
-      const root = d3.hierarchy(treeData);
-      treeLayout(root);
+        // --- 2. CONFIG D3.JS ---
+        const svg = d3.select("#tree-container");
+        const g = svg.append("g").attr("transform", "translate(150,0)");
+        const detailsPanel = d3.select("#details-panel");
+        let selectedPerson = null;
+        let selectedD3Node = null;
 
-      // Nettoyer avant redraw
-      g.selectAll("*").remove();
+        const zoomHandler = d3.zoom().scaleExtent([0.3, 3]).on("zoom", (event) => g.attr("transform", event.transform));
+        svg.call(zoomHandler);
 
-      // Liens
-      g.selectAll(".link")
-        .data(root.links())
-        .enter()
-        .append("path")
-        .attr("class", "link")
-        .attr("d", d3.linkHorizontal()
-          .x(d => d.y)
-          .y(d => d.x)
-        );
+        // --- 3. FONCTION DE RENDU PRINCIPALE ---
+        function renderTree() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            svg.attr("width", width).attr("height", height);
 
-      // Nœuds
-      const node = g.selectAll(".node")
-        .data(root.descendants())
-        .enter()
-        .append("g")
-        .attr("class", "node")
-        .attr("transform", d => `translate(${d.y},${d.x})`)
-        .on("click", (event, d) => showDetails(d.data));
+            const treeLayout = d3.tree().nodeSize([100, 250]);
+            const root = d3.hierarchy(treeData);
+            treeLayout(root);
+            
+            g.selectAll("*").remove(); // Nettoyer avant de redessiner
 
-      node.append("circle")
-        .attr("r", 10)
-        .attr("class", d => `generation-${d.depth}`);
+            // Liens hiérarchiques
+            g.append("g").selectAll(".link")
+                .data(root.links()).enter()
+                .append("path").attr("class", "link")
+                .attr("d", d3.linkHorizontal().x(d => d.y).y(d => d.x));
 
-      node.append("text")
-        .attr("dy", "0.31em")
-        .attr("x", d => (d.children ? -15 : 15))
-        .attr("text-anchor", d => (d.children ? "end" : "start"))
-        .text(d => d.data.name);
-    }
+            // Nœuds (personnes et conjoints)
+            const node = g.append("g").selectAll(".node")
+                .data(root.descendants()).enter()
+                .append("g").attr("class", "node")
+                .attr("transform", d => `translate(${d.y},${d.x})`);
 
-    // Zoom / pan
-    const zoomHandler = d3.zoom()
-      .scaleExtent([0.5, 2.5])
-      .on("zoom", (event) => {
-        g.attr("transform", event.transform);
-      });
-    svg.call(zoomHandler);
+            // Nœuds principaux (lignée directe)
+            node.append("circle").attr("r", 12)
+                .attr("class", d => `generation-${d.depth}`)
+                .on("click", (event, d) => showDetails(d));
+            
+            node.append("text").attr("dy", "-1.5em")
+                .attr("x", 0).attr("text-anchor", "middle")
+                .text(d => d.data.name);
 
-    // Affichage panneau de détails + mémorisation du parent sélectionné
-    function showDetails(person) {
-      selectedPerson = person; // <- parent cible
-      detailsPanel.classed("visible", true);
-      detailsPanel.select("#person-image").attr("src", person.imageUrl || "https://via.placeholder.com/100");
-      detailsPanel.select("#person-name").text(person.name || "—");
-      detailsPanel.select("#person-birth").text(`Naissance : ${person.birthDate || "Inconnue"}`);
+            // Nœuds des conjoints
+            const spouseNodes = node.filter(d => d.data.spouse);
+            
+            spouseNodes.append("rect")
+                .attr("class", d => `generation-${d.depth}`)
+                .attr("width", 24).attr("height", 24)
+                .attr("x", 30).attr("y", -12)
+                .on("click", (event, d) => showDetails(d, true));
 
-      const death = detailsPanel.select("#person-death");
-      if (person.deathDate) {
-        death.text(`Décès : ${person.deathDate}`).style("display", "block");
-      } else {
-        death.style("display", "none");
-      }
+            spouseNodes.append("text")
+                .attr("dy", "-1.5em").attr("x", 42)
+                .attr("text-anchor", "middle")
+                .text(d => d.data.spouse.name);
 
-      // Reset feedback du formulaire
-      document.getElementById("add-child-feedback").style.display = "none";
-      document.getElementById("add-child-error").style.display = "none";
-      document.getElementById("add-child-form").reset();
-    }
+            spouseNodes.append("path")
+                .attr("class", "spouse-link")
+                .attr("d", "M12,0 H30");
+        }
 
-    // --- NOUVEAU : gestion du formulaire "Ajouter un enfant" ---
-    document.getElementById("add-child-form").addEventListener("submit", function (e) {
-      e.preventDefault();
-      const name = (document.getElementById("child-name").value || "").trim();
-      const birth = (document.getElementById("child-birth").value || "").trim();
-      const death = (document.getElementById("child-death").value || "").trim();
-      const image = (document.getElementById("child-image").value || "").trim();
+        // --- 4. PANNEAU DE DÉTAILS ET ACTIONS ---
+        function showDetails(d3Node, isSpouse = false) {
+            selectedD3Node = d3Node;
+            selectedPerson = isSpouse ? d3Node.data.spouse : d3Node.data;
+            const personData = selectedPerson;
 
-      const errorEl = document.getElementById("add-child-error");
-      const okEl = document.getElementById("add-child-feedback");
+            detailsPanel.classed("visible", true);
+            switchToViewMode();
 
-      if (!selectedPerson) {
-        errorEl.textContent = "Veuillez d’abord sélectionner une personne (cliquez un nœud).";
-        errorEl.style.display = "block";
-        okEl.style.display = "none";
-        return;
-      }
-      if (!name) {
-        errorEl.textContent = "Le nom est requis.";
-        errorEl.style.display = "block";
-        okEl.style.display = "none";
-        return;
-      }
+            // Affichage des informations
+            detailsPanel.select("#person-image").attr("src", personData.imageUrl || "https://via.placeholder.com/100");
+            detailsPanel.select("#person-name").text(personData.name);
+            detailsPanel.select("#person-birth").text(`Naissance : ${personData.birthDate || "Inconnue"}`);
+            const deathEl = detailsPanel.select("#person-death");
+            personData.deathDate ? deathEl.text(`Décès : ${personData.deathDate}`).style("display", "block") : deathEl.style("display", "none");
 
-      // S’assurer que le tableau children existe
-      if (!Array.isArray(selectedPerson.children)) {
-        selectedPerson.children = [];
-      }
+            // Affichage du conjoint
+            const spouseInfoEl = detailsPanel.select("#person-spouse");
+            const mainPerson = d3Node.data;
+            if (isSpouse) {
+                 spouseInfoEl.text(`Conjoint(e) de ${mainPerson.name}`).style("display", "block");
+            } else if (mainPerson.spouse) {
+                spouseInfoEl.text(`Conjoint(e) : ${mainPerson.spouse.name}`).style("display", "block");
+            } else {
+                spouseInfoEl.style("display", "none");
+            }
 
-      // Ajouter le nouvel enfant
-      selectedPerson.children.push({
-        name: name,
-        birthDate: birth || null,
-        deathDate: death || null,
-        imageUrl: image || null,
-        children: []
-      });
+            // Gérer la visibilité des formulaires
+            document.getElementById('add-child-section').style.display = isSpouse ? 'none' : 'block';
+            document.getElementById('add-spouse-section').style.display = !isSpouse && !d3Node.data.spouse ? 'block' : 'none';
+        }
 
-      // Re-rendu de l’arbre
-      renderTree();
+        function showFeedback(message, type = 'success') {
+            const el = document.getElementById('feedback-zone');
+            el.textContent = message;
+            el.className = `feedback ${type}`;
+            el.style.display = 'block';
+            setTimeout(() => { el.style.display = 'none'; }, 3000);
+        }
 
-      // Feedback
-      errorEl.style.display = "none";
-      okEl.style.display = "block";
-      // (optionnel) re-sélectionner le parent pour continuer à ajouter
-    });
+        function switchToViewMode() {
+            document.getElementById('view-mode').style.display = 'block';
+            document.getElementById('edit-mode').style.display = 'none';
+        }
 
-    // Premier rendu + resize
-    renderTree();
-    window.addEventListener("resize", renderTree);
-  </script>
+        function switchToEditMode() {
+            document.getElementById('view-mode').style.display = 'none';
+            document.getElementById('edit-mode').style.display = 'block';
 
+            // Pré-remplir le formulaire d'édition
+            const form = document.getElementById('edit-form');
+            form.elements['name'].value = selectedPerson.name || '';
+            form.elements['birthDate'].value = selectedPerson.birthDate || '';
+            form.elements['deathDate'].value = selectedPerson.deathDate || '';
+            form.elements['imageUrl'].value = selectedPerson.imageUrl || '';
+        }
+        
+        // --- 5. GESTIONNAIRES D'ÉVÉNEMENTS ---
+
+        // Bouton Modifier
+        document.getElementById('edit-btn').addEventListener('click', switchToEditMode);
+        document.getElementById('cancel-edit-btn').addEventListener('click', switchToViewMode);
+        
+        // Soumission du formulaire d'édition
+        document.getElementById('edit-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const form = e.target;
+            selectedPerson.name = form.elements['name'].value.trim();
+            selectedPerson.birthDate = form.elements['birthDate'].value.trim() || null;
+            selectedPerson.deathDate = form.elements['deathDate'].value.trim() || null;
+            selectedPerson.imageUrl = form.elements['imageUrl'].value.trim() || null;
+            
+            saveData();
+            renderTree();
+            showDetails(selectedD3Node, selectedPerson !== selectedD3Node.data); // Reselect the same person
+            showFeedback("Informations mises à jour.", "success");
+        });
+        
+        // Bouton Supprimer
+        document.getElementById('delete-btn').addEventListener('click', () => {
+            if (confirm(`Êtes-vous sûr de vouloir supprimer ${selectedPerson.name} et toute sa descendance ?`)) {
+                if (selectedD3Node.depth === 0) {
+                    alert("Impossible de supprimer la racine de l'arbre.");
+                    return;
+                }
+                const isSpouse = selectedPerson !== selectedD3Node.data;
+                if (isSpouse) {
+                    delete selectedD3Node.data.spouse;
+                } else {
+                    const parentChildren = selectedD3Node.parent.data.children;
+                    const index = parentChildren.findIndex(child => child.name === selectedPerson.name);
+                    parentChildren.splice(index, 1);
+                }
+                saveData();
+                renderTree();
+                detailsPanel.classed("visible", false);
+            }
+        });
+
+        // Formulaire Ajouter un enfant
+        document.getElementById('add-child-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = e.target.elements['name'].value.trim();
+            if (!name) return;
+            if (!Array.isArray(selectedPerson.children)) {
+                selectedPerson.children = [];
+            }
+            selectedPerson.children.push({ name: name, children: [] });
+            saveData();
+            renderTree();
+            e.target.reset();
+            showFeedback(`"${name}" ajouté(e) comme enfant.`, "success");
+        });
+
+        // Formulaire Ajouter un conjoint
+        document.getElementById('add-spouse-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = e.target.elements['name'].value.trim();
+            if (!name || selectedPerson.spouse) return;
+            selectedPerson.spouse = { name: name };
+            saveData();
+            renderTree();
+            showDetails(selectedD3Node); // Refresh panel
+            showFeedback(`"${name}" ajouté(e) comme conjoint.`, "success");
+        });
+
+        // --- 6. INITIALISATION ---
+        loadData();
+        renderTree();
+        window.addEventListener("resize", renderTree);
+    </script>
 </body>
 </html>
